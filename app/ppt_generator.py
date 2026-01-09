@@ -75,7 +75,6 @@ def generar_ppt(excel_bytes: bytes) -> bytes:
     rut_cliente = str(df.iloc[0]["RUT Cliente"])
 
     portada = prs.slides[0]
-
     for shape in portada.shapes:
         if shape.name == "info_cliente" and shape.has_text_frame:
             tf = shape.text_frame
@@ -87,7 +86,12 @@ def generar_ppt(excel_bytes: bytes) -> bytes:
             p1.font.size = Pt(20)
 
     # 4️⃣ Crear slides con tablas
+    COLUMNAS_TABLA = COLUMNAS_REPORTE[3:]  # eliminar las primeras 3 columnas
     total_slides = math.ceil(len(df) / FILAS_POR_SLIDE)
+
+    # Calcular totales de las últimas 4 columnas para todo el Excel
+    columnas_totales = ["Monto Documento", "Monto Recaudado", "Capital Amortizado", "Monto Saldo"]
+    totales_globales = {col: df[col].sum() for col in columnas_totales}
 
     for slide_idx in range(total_slides):
         inicio = slide_idx * FILAS_POR_SLIDE
@@ -96,8 +100,10 @@ def generar_ppt(excel_bytes: bytes) -> bytes:
 
         slide = prs.slides.add_slide(prs.slide_layouts[6])  # blank
 
-        filas = len(df_slice) + 1
-        columnas = len(COLUMNAS_REPORTE)
+        # Solo agregamos +1 fila de total si es la última slide
+        es_ultima_slide = (slide_idx == total_slides - 1)
+        filas = len(df_slice) + 1 + (1 if es_ultima_slide else 0)
+        columnas = len(COLUMNAS_TABLA)
 
         left = (SLIDE_WIDTH - TABLE_WIDTH) // 2
         top = (SLIDE_HEIGHT - TABLE_HEIGHT) // 4
@@ -111,26 +117,33 @@ def generar_ppt(excel_bytes: bytes) -> bytes:
             TABLE_HEIGHT,
         ).table
 
+        # ⚡ Establecer tamaño uniforme de columnas y filas
+        ancho_columna = int(TABLE_WIDTH / columnas)
+        alto_fila = int(TABLE_HEIGHT / FILAS_POR_SLIDE)
+        for col in table.columns:
+            col.width = ancho_columna
+        for row in table.rows:
+            row.height = alto_fila
+
         # Encabezados
-        for col_idx, col_name in enumerate(COLUMNAS_REPORTE):
+        for col_idx, col_name in enumerate(COLUMNAS_TABLA):
             cell = table.cell(0, col_idx)
             cell.text = col_name
-
             p = cell.text_frame.paragraphs[0]
             p.font.bold = True
             p.font.size = Pt(8)
 
         # Datos
-        for row_idx, row in enumerate(df_slice.itertuples(index=False), start=1):
+        for row_idx, row in enumerate(df_slice[COLUMNAS_TABLA].itertuples(index=False), start=1):
             for col_idx, value in enumerate(row):
                 cell = table.cell(row_idx, col_idx)
 
                 if pd.isna(value):
                     texto = ""
-                elif COLUMNAS_REPORTE[col_idx] == "Cliente" or COLUMNAS_REPORTE[col_idx] == "Deudor":
+                elif COLUMNAS_TABLA[col_idx] in ["Cliente", "Deudor"]:
                     texto = str(value).title()
-                elif COLUMNAS_REPORTE[col_idx] in ["Fecha Otorgamiento", "Fecha Vencimiento"]:
-                    if isinstance(value, (pd.Timestamp, datetime)):
+                elif COLUMNAS_TABLA[col_idx] in ["Fecha Otorgamiento", "Fecha Vencimiento"]:
+                    if isinstance(value, (pd.Timestamp, datetime.datetime)):
                         texto = value.strftime("%d-%m-%Y")
                     else:
                         texto = str(value)
@@ -138,7 +151,22 @@ def generar_ppt(excel_bytes: bytes) -> bytes:
                     texto = str(value)
 
                 cell.text = texto
-                cell.text_frame.paragraphs[0].font.size = Pt(7)
+                cell.text_frame.paragraphs[0].font.size = Pt(8)
+
+        # ➕ Fila de totales solo en la última slide
+        if es_ultima_slide:
+            total_row_idx = len(df_slice) + 1
+            for col_idx, col_name in enumerate(COLUMNAS_TABLA):
+                cell = table.cell(total_row_idx, col_idx)
+                if col_name in columnas_totales:
+                    suma = totales_globales[col_name]
+                    cell.text = f"{suma:,.2f}"
+                elif col_idx == 0:
+                    cell.text = "TOTAL"
+                else:
+                    cell.text = ""
+                cell.text_frame.paragraphs[0].font.bold = True
+                cell.text_frame.paragraphs[0].font.size = Pt(8)
 
     # 5️⃣ Guardar en memoria
     output = BytesIO()
@@ -146,3 +174,5 @@ def generar_ppt(excel_bytes: bytes) -> bytes:
     output.seek(0)
 
     return output.read()
+
+
