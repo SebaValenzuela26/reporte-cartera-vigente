@@ -25,7 +25,7 @@ COLUMNAS_REPORTE = [
     "Monto Saldo",
 ]
 
-FILAS_POR_SLIDE = 10  # se mantiene igual
+FILAS_POR_SLIDE = 8  # se mantiene igual
 SLIDE_WIDTH = Inches(13.33)
 SLIDE_HEIGHT = Inches(7.5)
 
@@ -59,7 +59,7 @@ def pptx_a_pdf(pptx_bytes: bytes, output_pdf_path: str) -> None:
 
 def generar_ppt(excel_bytes: bytes) -> bytes:
     # 1️⃣ Leer Excel
-    df = pd.read_excel(BytesIO(excel_bytes))
+    df = pd.read_excel(BytesIO(excel_bytes), header=1)
 
     columnas_faltantes = [c for c in COLUMNAS_REPORTE if c not in df.columns]
     if columnas_faltantes:
@@ -118,7 +118,7 @@ def generar_ppt(excel_bytes: bytes) -> bytes:
 
             p = cell.text_frame.paragraphs[0]
             p.font.bold = True
-            p.font.size = Pt(10)
+            p.font.size = Pt(8)
 
         # Datos
         for row_idx, row in enumerate(df_slice.itertuples(index=False), start=1):
@@ -138,7 +138,7 @@ def generar_ppt(excel_bytes: bytes) -> bytes:
                     texto = str(value)
 
                 cell.text = texto
-                cell.text_frame.paragraphs[0].font.size = Pt(9)
+                cell.text_frame.paragraphs[0].font.size = Pt(7)
 
     # 5️⃣ Guardar en memoria
     output = BytesIO()
