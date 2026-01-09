@@ -2,6 +2,8 @@ from io import BytesIO
 import math
 import pandas as pd
 import datetime
+import subprocess
+import os
 from pptx import Presentation
 from pptx.util import Inches, Pt
 
@@ -30,6 +32,30 @@ SLIDE_HEIGHT = Inches(7.5)
 TABLE_WIDTH = Inches(12.3)
 TABLE_HEIGHT = Inches(5.2)
 
+def pptx_a_pdf(pptx_bytes: bytes, output_pdf_path: str) -> None:
+    """
+    Convierte un PPTX en memoria a PDF usando LibreOffice headless.
+    Guarda el PDF en output_pdf_path.
+    """
+    # Guardar PPTX temporalmente
+    tmp_pptx = "temp_reporte.pptx"
+    with open(tmp_pptx, "wb") as f:
+        f.write(pptx_bytes)
+
+    # Comando LibreOffice para convertir a PDF
+    subprocess.run([
+        "libreoffice",
+        "--headless",
+        "--convert-to", "pdf",
+        "--outdir", os.path.dirname(output_pdf_path),
+        tmp_pptx
+    ], check=True)
+
+    # Mover el PDF generado a la ruta deseada (LibreOffice usa mismo nombre con .pdf)
+    os.rename(os.path.splitext(tmp_pptx)[0] + ".pdf", output_pdf_path)
+
+    # Borrar PPTX temporal
+    os.remove(tmp_pptx)
 
 def generar_ppt(excel_bytes: bytes) -> bytes:
     # 1️⃣ Leer Excel
@@ -74,7 +100,7 @@ def generar_ppt(excel_bytes: bytes) -> bytes:
         columnas = len(COLUMNAS_REPORTE)
 
         left = (SLIDE_WIDTH - TABLE_WIDTH) // 2
-        top = (SLIDE_HEIGHT - TABLE_HEIGHT) // 2
+        top = (SLIDE_HEIGHT - TABLE_HEIGHT) // 4
 
         table = slide.shapes.add_table(
             filas,
