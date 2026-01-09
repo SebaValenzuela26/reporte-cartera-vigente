@@ -68,7 +68,7 @@ def generar_ppt(excel_bytes: bytes) -> bytes:
         fin = inicio + FILAS_POR_SLIDE
         df_slice = df.iloc[inicio:fin]
 
-        slide = prs.slides.add_slide(prs.slide_layouts[5])  # blank
+        slide = prs.slides.add_slide(prs.slide_layouts[6])  # blank
 
         filas = len(df_slice) + 1
         columnas = len(COLUMNAS_REPORTE)
